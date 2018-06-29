@@ -65,7 +65,20 @@ impl Cuckoo {
             return false
         }
 
-        unimplemented!()
+        let mut cycle_length = 1;
+        let mut cur_edge = self.edge(key, 0);
+        let start = cur_edge.0;
+        loop {
+            let next_lower = *from_upper[&cur_edge.0].iter().find(|v| **v != cur_edge.1).unwrap();
+            let next_upper = *from_lower[&next_lower].iter().find(|u| **u != cur_edge.0).unwrap();
+
+            if start == next_upper {
+                break
+            }
+            cycle_length += 1;
+            cur_edge = (next_upper, next_lower);
+        }
+        cycle_length == self.cycle_length
     }
 
     pub fn solve(&self, message: Vec<u8>) -> Option<Vec<u32>> {
