@@ -23,6 +23,11 @@ impl Cuckoo {
     }
 
     pub fn verify(&self, message: &[u8], proof: &[u32]) -> bool {
+        // Check if proof values are in valid range
+        if proof.iter().any(|i| *i >= self.max_edge as u32) {
+            return false
+        }
+
         let hasher = {
             let mut blake_hasher = Blake2b::new(32);
             let mut result = Vec::new();
