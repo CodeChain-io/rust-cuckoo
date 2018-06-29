@@ -25,6 +25,10 @@ impl Cuckoo {
     }
 
     pub fn verify(&self, message: &[u8], proof: &[u32]) -> bool {
+        if proof.len() != self.cycle_length {
+            return false
+        }
+
         // Check if proof values are in valid range
         if proof.iter().any(|i| *i >= self.max_edge as u32) {
             return false
