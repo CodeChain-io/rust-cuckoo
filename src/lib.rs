@@ -37,7 +37,7 @@ impl Cuckoo {
 
         let key = {
             let mut blake_hasher = Blake2b::new(32);
-            let mut result = Vec::new();
+            let mut result = vec![0u8; 32];
             blake_hasher.input(message);
             blake_hasher.result(&mut result);
             let key_0 = NativeEndian::read_u64(&result[0..8]).to_le();
@@ -98,5 +98,33 @@ impl Cuckoo {
             hasher.finish() % self.max_vertex as u64
         };
         (upper, lower)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Cuckoo;
+
+    #[test]
+    fn verify_cuckoo() {
+        let cuckoo = Cuckoo::new(16, 8, 6);
+
+        let message = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x22, 0x01, 0, 0
+        ];
+        let proof = [0, 1, 2, 3, 4, 5];
+        cuckoo.verify(&message, &proof);
+
+        let message = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xbc, 0x03, 0, 0
+        ];
+        let proof = [1, 3, 4, 5, 6, 7];
+        cuckoo.verify(&message, &proof);
     }
 }
