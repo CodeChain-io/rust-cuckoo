@@ -2,6 +2,7 @@ extern crate byteorder;
 extern crate crypto;
 extern crate siphasher;
 
+use std::collections::HashMap;
 use std::hash::Hasher;
 
 use byteorder::{ByteOrder, NativeEndian};
@@ -34,7 +35,7 @@ impl Cuckoo {
             return false
         }
 
-        let hasher = {
+        let key = {
             let mut blake_hasher = Blake2b::new(32);
             let mut result = Vec::new();
             blake_hasher.input(message);
@@ -42,23 +43,47 @@ impl Cuckoo {
             let key_0 = NativeEndian::read_u64(&result[0..8]).to_le();
             let key_1 = NativeEndian::read_u64(&result[8..16]).to_le();
 
-            SipHasher24::new_with_keys(key_0, key_1)
+            (key_0, key_1)
         };
 
-        let upper: Vec<_> = proof.iter().map(|i| {
-            let mut hasher = hasher.clone();
-            hasher.write_u32(2 * i + 0);
-            hasher.finish() % self.max_vertex as u64
-        }).collect();
-        let lower: Vec<_> = proof.iter().map(|i| {
-            let mut hasher = hasher.clone();
-            hasher.write_u32(2 * i + 1);
-            hasher.finish() % self.max_vertex as u64
-        }).collect();
+        let mut from_upper: HashMap<_, Vec<_>> = HashMap::new();
+        let mut from_lower: HashMap<_, Vec<_>> = HashMap::new();
+        for (u, v) in proof.iter().map(|i| self.edge(key, *i)) {
+            if !from_upper.contains_key(&u) {
+                from_upper.insert(u, Vec::new());
+            }
+            if !from_lower.contains_key(&v) {
+                from_lower.insert(v, Vec::new());
+            }
+            from_upper.get_mut(&u).unwrap().push(v);
+            from_lower.get_mut(&v).unwrap().push(u);
+        }
+        if from_upper.values().any(|list| list.len() != 2) {
+            return false
+        }
+        if from_lower.values().any(|list| list.len() != 2) {
+            return false
+        }
+
         unimplemented!()
     }
 
     pub fn solve(&self, message: Vec<u8>) -> Option<Vec<u32>> {
         unimplemented!()
+    }
+
+    fn edge(&self, key: (u64, u64), index: u32) -> (u64, u64) {
+        let hasher = SipHasher24::new_with_keys(key.0, key.1);
+        let upper = {
+            let mut hasher = hasher.clone();
+            hasher.write_u32(2 * index + 0);
+            hasher.finish() % self.max_vertex as u64
+        };
+        let lower = {
+            let mut hasher = hasher.clone();
+            hasher.write_u32(2 * index + 1);
+            hasher.finish() % self.max_vertex as u64
+        };
+        (upper, lower)
     }
 }
