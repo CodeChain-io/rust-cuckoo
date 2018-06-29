@@ -2,6 +2,8 @@ extern crate byteorder;
 extern crate crypto;
 extern crate siphasher;
 
+use std::hash::Hasher;
+
 use byteorder::{ByteOrder, NativeEndian};
 use crypto::digest::Digest;
 use crypto::blake2b::Blake2b;
@@ -39,6 +41,16 @@ impl Cuckoo {
             SipHasher24::new_with_keys(key_0, key_1)
         };
 
+        let upper: Vec<_> = proof.iter().map(|i| {
+            let mut hasher = hasher.clone();
+            hasher.write_u32(2 * i + 0);
+            hasher.finish() % self.max_vertex as u64
+        }).collect();
+        let lower: Vec<_> = proof.iter().map(|i| {
+            let mut hasher = hasher.clone();
+            hasher.write_u32(2 * i + 1);
+            hasher.finish() % self.max_vertex as u64
+        }).collect();
         unimplemented!()
     }
 
