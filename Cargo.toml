@@ -5,3 +5,4 @@ license = "MIT"
 authors = ["CodeChain Team <codechain@kodebox.io>"]
 
 [dependencies]
+rust-crypto = "0.2.36"
