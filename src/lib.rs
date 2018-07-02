@@ -116,7 +116,7 @@ mod test {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x22, 0x01, 0, 0
         ];
         let proof = [0, 1, 2, 3, 4, 5];
-        cuckoo.verify(&message, &proof);
+        assert!(cuckoo.verify(&message, &proof));
 
         let message = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -125,6 +125,6 @@ mod test {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xbc, 0x03, 0, 0
         ];
         let proof = [1, 3, 4, 5, 6, 7];
-        cuckoo.verify(&message, &proof);
+        assert!(cuckoo.verify(&message, &proof));
     }
 }
