@@ -1,14 +1,15 @@
 extern crate byteorder;
 extern crate crypto;
-extern crate siphasher;
+
+mod sip;
 
 use std::collections::HashMap;
-use std::hash::Hasher;
 
 use byteorder::{ByteOrder, NativeEndian};
 use crypto::digest::Digest;
 use crypto::blake2b::Blake2b;
-use siphasher::sip::SipHasher24;
+
+use sip::CuckooSip;
 
 pub struct Cuckoo {
     max_vertex: usize,
@@ -35,20 +36,23 @@ impl Cuckoo {
             return false
         }
 
-        let key = {
+        let keys = {
             let mut blake_hasher = Blake2b::new(32);
             let mut result = vec![0u8; 32];
             blake_hasher.input(message);
             blake_hasher.result(&mut result);
-            let key_0 = NativeEndian::read_u64(&result[0..8]).to_le();
-            let key_1 = NativeEndian::read_u64(&result[8..16]).to_le();
 
-            (key_0, key_1)
+            [
+                NativeEndian::read_u64(&result[0..8]).to_le(),
+                NativeEndian::read_u64(&result[8..16]).to_le(),
+                NativeEndian::read_u64(&result[16..24]).to_le(),
+                NativeEndian::read_u64(&result[24..32]).to_le(),
+            ]
         };
 
         let mut from_upper: HashMap<_, Vec<_>> = HashMap::new();
         let mut from_lower: HashMap<_, Vec<_>> = HashMap::new();
-        for (u, v) in proof.iter().map(|i| self.edge(key, *i)) {
+        for (u, v) in proof.iter().map(|i| self.edge(&keys, *i)) {
             if !from_upper.contains_key(&u) {
                 from_upper.insert(u, Vec::new());
             }
@@ -65,18 +69,18 @@ impl Cuckoo {
             return false
         }
 
-        let mut cycle_length = 1;
-        let mut cur_edge = self.edge(key, 0);
+        let mut cycle_length = 0;
+        let mut cur_edge = self.edge(&keys, 0);
         let start = cur_edge.0;
         loop {
             let next_lower = *from_upper[&cur_edge.0].iter().find(|v| **v != cur_edge.1).unwrap();
             let next_upper = *from_lower[&next_lower].iter().find(|u| **u != cur_edge.0).unwrap();
+            cur_edge = (next_upper, next_lower);
+            cycle_length += 2;
 
-            if start == next_upper {
+            if start == cur_edge.0 {
                 break
             }
-            cycle_length += 1;
-            cur_edge = (next_upper, next_lower);
         }
         cycle_length == self.cycle_length
     }
@@ -85,18 +89,11 @@ impl Cuckoo {
         unimplemented!()
     }
 
-    fn edge(&self, key: (u64, u64), index: u32) -> (u64, u64) {
-        let hasher = SipHasher24::new_with_keys(key.0, key.1);
-        let upper = {
-            let mut hasher = hasher.clone();
-            hasher.write_u32(2 * index + 0);
-            hasher.finish() % self.max_vertex as u64
-        };
-        let lower = {
-            let mut hasher = hasher.clone();
-            hasher.write_u32(2 * index + 1);
-            hasher.finish() % self.max_vertex as u64
-        };
+    fn edge(&self, keys: &[u64; 4], index: u32) -> (u64, u64) {
+        let hasher = CuckooSip::new(keys[0], keys[1], keys[2], keys[3]);
+        let upper = hasher.hash(2 * (index as u64) + 0) % ((self.max_vertex as u64) / 2);
+        let lower = hasher.hash(2 * (index as u64) + 1) % ((self.max_vertex as u64) / 2);
+
         (upper, lower)
     }
 }
@@ -107,24 +104,38 @@ mod test {
 
     #[test]
     fn verify_cuckoo() {
+        let testset = [
+            (
+                [
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1c, 0, 0, 0
+                ],
+                [0, 1, 2, 4, 5, 6],
+            ),
+            (
+                [
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x36, 0, 0, 0
+                ],
+                [0, 1, 2, 3, 4, 7],
+            ),
+            (
+                [
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xf6, 0, 0, 0
+                ],
+                [0, 1, 2, 4, 5, 7],
+            ),
+        ];
         let cuckoo = Cuckoo::new(16, 8, 6);
-
-        let message = [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x22, 0x01, 0, 0
-        ];
-        let proof = [0, 1, 2, 3, 4, 5];
-        assert!(cuckoo.verify(&message, &proof));
-
-        let message = [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xbc, 0x03, 0, 0
-        ];
-        let proof = [1, 3, 4, 5, 6, 7];
-        assert!(cuckoo.verify(&message, &proof));
+        for (message, proof) in testset.iter() {
+            assert!(cuckoo.verify(message, proof));
+        }
     }
 }

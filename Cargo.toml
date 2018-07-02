@@ -7,4 +7,3 @@ authors = ["CodeChain Team <codechain@kodebox.io>"]
 [dependencies]
 byteorder = "1.2.3"
 rust-crypto = "0.2.36"
-siphasher = "0.2.2"
