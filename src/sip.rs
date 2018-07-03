@@ -3,7 +3,7 @@ pub struct CuckooSip {
 }
 
 impl CuckooSip {
-    pub fn new(key0: u64, key1: u64, key2: u64, key3: u64)-> Self {
+    pub fn new(key0: u64, key1: u64, key2: u64, key3: u64) -> Self {
         Self {
             keys: [key0, key1, key2, key3],
         }
@@ -16,7 +16,8 @@ impl CuckooSip {
         let mut v3 = self.keys[3] ^ val;
         CuckooSip::sipround(&mut v0, &mut v1, &mut v2, &mut v3);
         CuckooSip::sipround(&mut v0, &mut v1, &mut v2, &mut v3);
-        v0 ^= val; v2 ^= 0xff;
+        v0 ^= val;
+        v2 ^= 0xff;
         CuckooSip::sipround(&mut v0, &mut v1, &mut v2, &mut v3);
         CuckooSip::sipround(&mut v0, &mut v1, &mut v2, &mut v3);
         CuckooSip::sipround(&mut v0, &mut v1, &mut v2, &mut v3);
