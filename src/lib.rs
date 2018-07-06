@@ -70,7 +70,7 @@ impl Cuckoo {
         }
 
         let mut cycle_length = 0;
-        let mut cur_edge = self.edge(&keys, 0);
+        let mut cur_edge = self.edge(&keys, proof[0]);
         let start = cur_edge.0;
         loop {
             let next_lower = *from_upper[&cur_edge.0].iter().find(|v| **v != cur_edge.1).unwrap();
