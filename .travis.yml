@@ -4,10 +4,12 @@ rust:
   - beta
   - nightly
 install:
-  - rustup toolchain install nightly-2018-05-07
-  - rustup component add rustfmt-preview --toolchain nightly-2018-05-07
+  - rustup toolchain install nightly-2019-10-13
+  - rustup component add rustfmt --toolchain nightly-2019-10-13
+  - rustup component add clippy --toolchain nightly-2019-10-13
 script:
-  - cargo +nightly-2018-05-07 fmt -- --write-mode=diff
+  - cargo +nightly-2019-10-13 fmt -- --check
+  - cargo +nightly-2019-10-13 clippy --all --all-targets -- -D warnings
   - RUST_BACKTRACE=1 cargo test --verbose
 matrix:
   allow_failures:

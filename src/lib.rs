@@ -53,14 +53,8 @@ impl Cuckoo {
         let mut from_upper: HashMap<_, Vec<_>> = HashMap::new();
         let mut from_lower: HashMap<_, Vec<_>> = HashMap::new();
         for (u, v) in proof.iter().map(|i| self.edge(&keys, *i)) {
-            if !from_upper.contains_key(&u) {
-                from_upper.insert(u, Vec::new());
-            }
-            if !from_lower.contains_key(&v) {
-                from_lower.insert(v, Vec::new());
-            }
-            from_upper.get_mut(&u).unwrap().push(v);
-            from_lower.get_mut(&v).unwrap().push(u);
+            from_upper.entry(u).or_default().push(v);
+            from_lower.entry(v).or_default().push(u);
         }
         if from_upper.values().any(|list| list.len() != 2) {
             return false
@@ -104,6 +98,7 @@ impl Cuckoo {
         for nonce in 0..self.max_edge {
             let (u, v) = {
                 let edge = self.edge(&keys, nonce as u32);
+                #[allow(clippy::identity_op)]
                 (2 * edge.0 + 0, 2 * edge.1 + 1)
             };
             if u == 0 {
@@ -125,6 +120,7 @@ impl Cuckoo {
                     for n in 0..self.max_edge {
                         let cur_edge = {
                             let edge = self.edge(&keys, n as u32);
+                            #[allow(clippy::identity_op)]
                             (2 * edge.0 + 0, 2 * edge.1 + 1)
                         };
                         for i in 0..cycle.len() {
@@ -169,6 +165,7 @@ impl Cuckoo {
 
     fn edge(&self, keys: &[u64; 4], index: u32) -> (u64, u64) {
         let hasher = CuckooSip::new(keys[0], keys[1], keys[2], keys[3]);
+        #[allow(clippy::identity_op)]
         let upper = hasher.hash(2 * (index as u64) + 0) % ((self.max_vertex as u64) / 2);
         let lower = hasher.hash(2 * (index as u64) + 1) % ((self.max_vertex as u64) / 2);
 
